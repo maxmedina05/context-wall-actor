@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node --experimental-vm-modules dist/main.js",
     "build": "tsc -p tsconfig.json",
-    "dev": "tsx src/main.ts"
+    "dev": "tsx src/main.ts",
+    "test:local": "tsx src/dev/localTest.ts"
   },
   "dependencies": {
     "@google/genai": "^0.8.0",
