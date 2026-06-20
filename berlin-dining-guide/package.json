@@ -1,0 +1,12 @@
+{
+  "name": "berlin-dining-guide",
+  "version": "0.1.0",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node src/main.js"
+  },
+  "dependencies": {
+    "apify": "^3.3.0"
+  }
+}

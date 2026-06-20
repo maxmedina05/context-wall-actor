@@ -1,0 +1,8 @@
+{
+  "actorSpecification": 1,
+  "name": "berlin-dining-guide",
+  "title": "Berlin Dining Guide",
+  "description": "Curated Berlin restaurant listings — name, rating, cuisine, address, and a top review.",
+  "version": "0.1",
+  "input": "./input_schema.json"
+}

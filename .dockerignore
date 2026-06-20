@@ -6,5 +6,6 @@ dist/
 storage/
 apify_storage/
 berlin-restaurant-scraper/
+berlin-dining-guide/
 *.md
 .DS_Store

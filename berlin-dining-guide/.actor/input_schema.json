@@ -1,0 +1,22 @@
+{
+  "title": "Berlin Dining Guide Input",
+  "type": "object",
+  "schemaVersion": 1,
+  "properties": {
+    "count": {
+      "title": "Item count",
+      "type": "integer",
+      "description": "How many listings to return (1-5).",
+      "default": 3,
+      "minimum": 1,
+      "maximum": 5
+    },
+    "delayMs": {
+      "title": "Per-item delay (ms)",
+      "type": "integer",
+      "description": "Delay between returned listings, in milliseconds.",
+      "default": 150,
+      "minimum": 0
+    }
+  }
+}
