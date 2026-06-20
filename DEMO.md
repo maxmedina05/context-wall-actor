@@ -6,7 +6,7 @@ There are **two kinds of demo**:
 |------|---------------|-------|
 | **Local runs** (this file) | The firewall engine itself — tiers, abort, cost accounting | `npm` commands here |
 | **Agent-via-MCP demos** | A real AI agent getting poisoned / protected through the Apify MCP tool | [VICTIM-DEMO.md](VICTIM-DEMO.md), [MULTISOURCE-DEMO.md](MULTISOURCE-DEMO.md) |
-| **Dashboard** | A one-page visual readout of a 3-source run | open `demo-dashboard.html` |
+| **Dashboard** | A one-page visual readout of a 3-source run | open `docs/index.html` (or GitHub Pages) |
 
 The agent demos run from two dedicated folders (outside this repo) so a fresh
 Claude Code session has no project context:

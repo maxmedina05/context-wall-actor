@@ -1,3 +1,8 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>ContextWall — Live Firewall Run</title>
 <style>
   :root {
@@ -180,8 +185,27 @@
 
   @media (max-width: 760px) {
     .cards, .outcomes, .steps { grid-template-columns: 1fr; }
+    .wrap { padding: 0 16px; }
+    .hero { padding: 40px 0 28px; }
+    .section { padding: 40px 0 8px; }
+    .hero .lede, .sub { font-size: 1rem; }
+    .schematic { padding: 12px; }
+    /* Diagram scales to fit the phone; it stays legible down to ~340px. */
+    .schematic svg { min-width: 0; }
+  }
+
+  @media (max-width: 460px) {
+    .stat { flex-basis: calc(50% - 7px); } /* 2-up instead of 1-per-row */
+    .stat .n { font-size: 1.5rem; }
+    .hero h1 { font-size: 1.85rem; }
+    .topbar { padding: 16px 0; }
+    .brand { font-size: 12px; }
+    .schematic { overflow-x: auto; }
+    .schematic svg { min-width: 480px; } /* below this the labels get unreadable — allow scroll */
   }
 </style>
+</head>
+<body>
 
 <div class="wrap">
 
@@ -391,3 +415,6 @@
   </footer>
 
 </div>
+
+</body>
+</html>

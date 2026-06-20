@@ -176,7 +176,7 @@ For the three block scenarios the harness asserts **early abort** (fewer than 12
 | Local engine | Tiers, abort, cost (offline + real cloud) | [DEMO.md](DEMO.md) |
 | Victim agent | A real agent poisoned vs protected (single source) | [VICTIM-DEMO.md](VICTIM-DEMO.md) |
 | Multi-source | Firewall as a selective gate over 3 sources | [MULTISOURCE-DEMO.md](MULTISOURCE-DEMO.md) |
-| Dashboard | One-page visual readout of a 3-source run | `demo-dashboard.html` |
+| Dashboard | One-page visual readout of a 3-source run | [docs/index.html](docs/index.html) (GitHub Pages-ready) |
 
 ### Build
 
