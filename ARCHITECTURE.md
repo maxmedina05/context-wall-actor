@@ -35,28 +35,34 @@ can trip the breaker.
 ```mermaid
 flowchart TD
   ROW["row from dataset"] --> T1{"Tier 1<br/>mechanical, per-row<br/>(~ms, no LLM)"}
-  T1 -->|"empty / block-page regex / missing required field"| X["⛔ trip breaker"]
+  T1 -->|"empty / block-page / prompt-injection / bad shape"| X["⛔ trip breaker"]
   T1 -->|"looks ok"| DELIVER["buffer row for delivery"]
   DELIVER --> SAMPLE{"sample full?<br/>(sampleSize rows)"}
   SAMPLE -->|"no"| ROW
   SAMPLE -->|"yes, once"| T2{"Tier 2<br/>LLM judge (Gemini)<br/>runs concurrently"}
-  T2 -->|"block-page OR off-intent"| X
+  T2 -->|"injection / block-page / off-intent"| X
   T2 -->|"clean & on-intent"| OK["✅ keep delivering"]
   X --> ABORT["AbortController.abort()<br/>+ client.run(id).abort()"]
 ```
 
 - **Tier 1 — mechanical** ([src/firewall/tier1.ts](src/firewall/tier1.ts)).
-  Runs on *every* row as it arrives: empty check, a regex blocklist
-  (`cloudflare`, `captcha`, `just a moment`, `403 forbidden`…), and a
-  required-field shape check. Catches hard block pages on the **first poisoned
-  row** — even when the JSON shape is perfect.
+  Runs on *every* row as it arrives: empty check, a ~28-pattern regex blocklist
+  (`cloudflare`, `captcha`, `403 forbidden`, Akamai/PerimeterX/DataDome, "Ray
+  ID", "checking your browser"… plus caller-supplied `extraBlocklist`), a
+  **prompt-injection scan** ("ignore all previous instructions", fake system
+  messages, override patterns → `prompt_injection`), and a required-field shape
+  check. Catches hard block pages and injections on the **first poisoned row** —
+  even when the JSON shape is perfect.
 - **Tier 2 — semantic** ([src/firewall/tier2.ts](src/firewall/tier2.ts)).
   Fires **once**, on the first `sampleSize` rows, *while polling continues*. A
   cheap fast model (Gemini Flash-Lite, [src/llm.ts](src/llm.ts)) decides
-  `isBlockPage?` and `aligned?` with the intent. Catches the "real but wrong"
-  case (e.g. sushi places when you asked for Georgian).
+  `isBlockPage?`, `containsInjection?`, and `aligned?` with the intent. Catches
+  the "real but wrong" case (e.g. sushi places when you asked for Georgian) and
+  injections the regex missed. Injection/block-page always block; an intent
+  **mismatch** is gated by `confidenceThreshold` to cut false positives.
 - **Fail closed.** No `GEMINI_API_KEY`, or any LLM error → drops to a keyword
-  heuristic (negation + vocab overlap). It **never waves data through on error**.
+  heuristic (injection regex + negation + vocab overlap). It **never waves data
+  through on error**.
 
 ---
 
@@ -132,6 +138,11 @@ flowchart LR
 Result on the "hard" (Cloudflare) fixture: aborted after **~1 of 12 rows**, 0
 toxic rows delivered, ~92% of the job never runs.
 
+**Fail closed on errors too.** The whole run is wrapped in a try/catch: if the
+target actor won't start, paging throws, or the upstream never settles within
+`maxWaitSecs`, ContextWall returns `ok:false` with `reason: "upstream_error"`
+instead of crashing — the agent always gets an `OUTPUT`, never a missing response.
+
 ---
 
 ## 5. What the agent gets back
@@ -144,9 +155,9 @@ early, so the payload stays small and arrives in a single MCP tool response):
   "ok": false,
   "tier": "tier1",
   "reason": "blocklist_keyword",
-  "detail": "Item #0 contains block-page signal: \"Cloudflare\".",
+  "detail": "Item #0 contains a prompt-injection signal: \"ignore all previous instructions\".",
   "confidence": null,
-  "stats": { "itemsStreamed": 1, "itemsDelivered": 0, "aborted": true, "upstreamRunId": "..." },
+  "stats": { "itemsStreamed": 1, "itemsDelivered": 0, "aborted": true, "upstreamRunId": "...", "tokensDelivered": 0, "tokensBlocked": 85, "usdSaved": 0.000255 },
   "data": []
 }
 ```
@@ -154,12 +165,13 @@ early, so the payload stays small and arrives in a single MCP tool response):
 | Field | Meaning |
 |-------|---------|
 | `ok` | passed both tiers? |
-| `tier` | which tier blocked (`tier1` / `tier2` / `null` if clean) |
-| `reason` | machine code: `clean`, `blocklist_keyword`, `schema_invalid`, `empty`, `semantic_mismatch`, `semantic_block` |
+| `tier` | which tier blocked (`tier1` / `tier2` / `null` if clean or error) |
+| `reason` | machine code: `clean`, `blocklist_keyword`, `prompt_injection`, `schema_invalid`, `empty`, `semantic_mismatch`, `semantic_block`, `upstream_error` |
 | `detail` | human-readable explanation |
 | `stats.itemsStreamed` | rows seen before stopping |
 | `stats.itemsDelivered` | clean rows returned (0 on any block) |
 | `stats.aborted` | did the breaker trip? |
+| `stats.tokensDelivered` / `tokensBlocked` / `usdSaved` | clean tokens passed · toxic tokens kept out of context · est. downstream $ saved |
 | `data` | clean rows, or `[]` if blocked |
 
 ---
