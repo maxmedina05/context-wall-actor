@@ -1,0 +1,8 @@
+{
+  "actorSpecification": 1,
+  "name": "context-wall-firewall",
+  "title": "ContextWall Firewall",
+  "description": "Data firewall for AI agents. Wraps any Apify scraper actor, validates output stream, and aborts the upstream run the moment toxic data is detected — before it poisons your agent's context window.",
+  "version": "0.1",
+  "input": "./input_schema.json"
+}

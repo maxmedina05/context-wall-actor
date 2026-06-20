@@ -1,0 +1,21 @@
+{
+  "name": "context-wall-actor",
+  "version": "0.1.0",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node --experimental-vm-modules dist/main.js",
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx src/main.ts"
+  },
+  "dependencies": {
+    "@google/genai": "^0.8.0",
+    "apify": "^3.3.0",
+    "apify-client": "^2.9.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.0"
+  }
+}

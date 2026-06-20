@@ -1,0 +1,47 @@
+{
+  "title": "ContextWall Firewall Input",
+  "type": "object",
+  "schemaVersion": 1,
+  "properties": {
+    "intent": {
+      "title": "Agent intent",
+      "type": "string",
+      "description": "Natural-language description of what data the agent expects. E.g. 'restaurants in NYC that offer delivery'.",
+      "editor": "textfield"
+    },
+    "actorId": {
+      "title": "Target actor ID",
+      "type": "string",
+      "description": "The Apify actor to run as the scraper. E.g. 'apify/google-maps-scraper'.",
+      "editor": "textfield"
+    },
+    "actorInput": {
+      "title": "Target actor input",
+      "type": "object",
+      "description": "Input object passed verbatim to the target actor.",
+      "editor": "json"
+    },
+    "requiredFields": {
+      "title": "Required fields",
+      "type": "array",
+      "description": "Field names every item must have (Tier 1 shape check).",
+      "editor": "stringList",
+      "default": []
+    },
+    "sampleSize": {
+      "title": "Tier 2 sample size",
+      "type": "integer",
+      "description": "Number of items to buffer before running the LLM semantic judge.",
+      "default": 3,
+      "minimum": 1
+    },
+    "geminiApiKey": {
+      "title": "Gemini API key",
+      "type": "string",
+      "description": "Google AI Studio key for Tier 2 semantic judge. Falls back to keyword heuristic if omitted.",
+      "editor": "textfield",
+      "isSecret": true
+    }
+  },
+  "required": ["intent", "actorId", "actorInput"]
+}
