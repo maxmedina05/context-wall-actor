@@ -1,0 +1,8 @@
+{
+  "actorSpecification": 1,
+  "name": "berlin-restaurant-scraper",
+  "title": "Berlin Restaurant Scraper",
+  "description": "Scrapes restaurant listings — name, rating, cuisine, address, and a top review — for an area.",
+  "version": "0.1",
+  "input": "./input_schema.json"
+}

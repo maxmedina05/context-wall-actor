@@ -6,7 +6,8 @@ export type Reason =
   | 'schema_invalid'
   | 'empty'
   | 'semantic_mismatch'
-  | 'semantic_block';
+  | 'semantic_block'
+  | 'prompt_injection';
 
 export interface Verdict {
   ok: boolean;

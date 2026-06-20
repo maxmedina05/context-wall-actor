@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.git/
+.env
+.env.local
+storage/
+apify_storage/
+toxic-scraper-mock/
+*.md
+.DS_Store

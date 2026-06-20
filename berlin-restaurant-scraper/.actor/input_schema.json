@@ -1,0 +1,31 @@
+{
+  "title": "Toxic Scraper Mock Input",
+  "type": "object",
+  "schemaVersion": 1,
+  "properties": {
+    "scenario": {
+      "title": "Scenario",
+      "type": "string",
+      "description": "Which kind of data to emit.",
+      "editor": "select",
+      "enum": ["clean", "blockpage", "injection"],
+      "enumTitles": ["Clean (real-looking)", "Block page (Cloudflare)", "Prompt injection"],
+      "default": "injection"
+    },
+    "count": {
+      "title": "Item count",
+      "type": "integer",
+      "description": "How many rows to emit (1-50).",
+      "default": 3,
+      "minimum": 1,
+      "maximum": 50
+    },
+    "delayMs": {
+      "title": "Per-item delay (ms)",
+      "type": "integer",
+      "description": "Delay between emitted rows, so a polling firewall can abort mid-stream.",
+      "default": 150,
+      "minimum": 0
+    }
+  }
+}

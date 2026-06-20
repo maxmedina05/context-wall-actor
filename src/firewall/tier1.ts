@@ -15,6 +15,19 @@ const BLOCKLIST: RegExp[] = [
   /bot\s+detection|automated\s+traffic/i,
 ];
 
+// Prompt-injection signatures embedded in scraped content (reviews, descriptions,
+// names…). Kept tight to avoid false positives on real business data.
+const INJECTION: RegExp[] = [
+  /ignore\s+(all\s+|any\s+)?(the\s+)?(previous|prior|above|earlier)\s+(instructions|prompts|messages|context)/i,
+  /disregard\s+(all\s+|any\s+)?(the\s+)?(previous|prior|above|earlier)/i,
+  /\bsystem\s*(prompt|message)\b/i,
+  /\bnew\s+instructions?\s*:/i,
+  /you\s+are\s+now\s+(a|an|the)\b/i,
+  /<\|?(im_start|im_end|system|endoftext)\|?>/i,
+  /\b(begin|end)\s+system\s+prompt\b/i,
+  /\boverride\s+(your|the|all)\s+(instructions|rules|guardrails)/i,
+];
+
 export interface Tier1Options {
   requiredFields?: string[];
 }
@@ -36,6 +49,13 @@ export function checkItem(item: unknown, index: number, opts: Tier1Options = {})
     const m = blob.match(rx);
     if (m) {
       return block('tier1', 'blocklist_keyword', `Item #${index} contains block-page signal: "${m[0]}".`, { atItem: index });
+    }
+  }
+
+  for (const rx of INJECTION) {
+    const m = blob.match(rx);
+    if (m) {
+      return block('tier1', 'prompt_injection', `Item #${index} contains a prompt-injection signal: "${m[0]}".`, { atItem: index });
     }
   }
 
