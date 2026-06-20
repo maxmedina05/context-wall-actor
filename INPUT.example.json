@@ -1,0 +1,15 @@
+{
+  "intent": "Georgian restaurants in Berlin, Germany",
+  "actorId": "compass/crawler-google-places",
+  "actorInput": {
+    "searchStringsArray": ["Georgian restaurants"],
+    "locationQuery": "Berlin, Germany",
+    "maxCrawledPlacesPerSearch": 3,
+    "language": "en"
+  },
+  "requiredFields": ["title", "address"],
+  "sampleSize": 3,
+  "_note_sampleSize": "10 > items returned => Tier 2 judge never fires => pure clean-path plumbing test. To exercise Tier 2, set this to 3 and provide GEMINI_API_KEY.",
+  "_note_geminiApiKey": "You can also pass geminiApiKey here instead of the env var; it is marked secret in input_schema.json.",
+  "_usage": "Copy to storage/key_value_stores/default/INPUT.json (gitignored), then `apify run` or `npm run dev:real`."
+}
