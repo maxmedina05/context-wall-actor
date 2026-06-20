@@ -8,6 +8,14 @@ export interface FirewallInput {
   actorInput: Record<string, unknown>;
   requiredFields?: string[];
   sampleSize?: number;
+  /** Extra caller-supplied block-page phrases (Tier 1, matched case-insensitively). */
+  extraBlocklist?: string[];
+  /** Downstream LLM price used to estimate $ saved by blocking toxic tokens. Default 3 ($/1M tokens). */
+  downstreamUsdPerMTok?: number;
+  /** Min Tier 2 confidence to hard-block an intent mismatch. 0 = strictest (default). */
+  confidenceThreshold?: number;
+  /** Safety cap on total wait for the upstream run before failing closed. Default 300s. */
+  maxWaitSecs?: number;
 }
 
 export interface FirewallOutput {
@@ -21,6 +29,12 @@ export interface FirewallOutput {
     itemsDelivered: number;
     aborted: boolean;
     upstreamRunId: string;
+    /** Estimated tokens of clean data returned to the agent (0 when blocked). */
+    tokensDelivered: number;
+    /** Estimated tokens kept OUT of the agent's context by blocking. */
+    tokensBlocked: number;
+    /** Estimated downstream LLM $ saved by not ingesting the blocked tokens. */
+    usdSaved: number;
   };
   data: Record<string, unknown>[];
 }
@@ -48,18 +62,28 @@ export interface FirewallClient {
 
 type Logger = (msg: string) => void;
 
+const byteLen = (v: unknown): number => {
+  try { return Buffer.byteLength(JSON.stringify(v) ?? ''); } catch { return 0; }
+};
+// ~4 chars per token is the standard rough estimate.
+const estTokens = (bytes: number): number => Math.ceil(bytes / 4);
+
+const errorVerdict = (detail: string): Verdict => ({
+  ok: false, tier: null, reason: 'upstream_error', detail,
+});
+
 export async function runFirewall(
   client: FirewallClient,
   input: FirewallInput,
   log: Logger = () => {},
   pollIntervalMs = 750,
 ): Promise<FirewallOutput> {
-  const { intent, actorId, actorInput, requiredFields = [], sampleSize = 3 } = input;
-
-  log(`Starting target actor: ${actorId}`);
-  const run = await client.actor(actorId).start(actorInput);
-  const { id: runId, defaultDatasetId: datasetId } = run;
-  log(`Upstream run started: ${runId}`);
+  const {
+    intent, actorId, actorInput,
+    requiredFields = [], sampleSize = 3,
+    extraBlocklist = [], downstreamUsdPerMTok = 3, confidenceThreshold = 0,
+    maxWaitSecs = 300,
+  } = input;
 
   const controller = new AbortController();
   const { signal } = controller;
@@ -70,6 +94,9 @@ export async function runFirewall(
   let itemsStreamed = 0;
   let abortStarted = false;
   let judgePromise: Promise<void> | null = null;
+  let runId = '';
+  let deliveredBytes = 0;   // bytes buffered as deliverable (withheld on a block)
+  let blockedItemBytes = 0; // bytes of a Tier-1 toxic item (never added to delivered)
 
   const tripBreaker = async (reason: string) => {
     if (abortStarted) return;
@@ -83,53 +110,82 @@ export async function runFirewall(
     }
   };
 
-  // Poll dataset while upstream run is in progress — same pattern as the MCP version.
-  let offset = 0;
+  try {
+    log(`Starting target actor: ${actorId}`);
+    const run = await client.actor(actorId).start(actorInput);
+    runId = run.id;
+    const datasetId = run.defaultDatasetId;
+    log(`Upstream run started: ${runId}`);
 
-  outer: while (!signal.aborted) {
-    const page = await client.dataset(datasetId).listItems({ offset, limit: 50, clean: true });
+    const deadline = Date.now() + maxWaitSecs * 1000;
+    let offset = 0;
 
-    for (const item of page.items) {
-      if (signal.aborted) break outer;
-      itemsStreamed++;
+    outer: while (!signal.aborted) {
+      const page = await client.dataset(datasetId).listItems({ offset, limit: 50, clean: true });
 
-      // Tier 1: mechanical, per-item, ~ms
-      const t1 = checkItem(item, itemsStreamed - 1, { requiredFields });
-      if (!t1.ok) {
-        verdict = t1;
-        log(`[Tier 1 BLOCK] item #${itemsStreamed - 1}: ${t1.detail}`);
-        await tripBreaker(`tier1:${t1.reason}`);
-        break outer;
+      for (const item of page.items) {
+        if (signal.aborted) break outer;
+        itemsStreamed++;
+
+        // Tier 1: mechanical, per-item, ~ms
+        const t1 = checkItem(item, itemsStreamed - 1, { requiredFields, extraBlocklist });
+        if (!t1.ok) {
+          verdict = t1;
+          blockedItemBytes = byteLen(item);
+          log(`[Tier 1 BLOCK] item #${itemsStreamed - 1}: ${t1.detail}`);
+          await tripBreaker(`tier1:${t1.reason}`);
+          break outer;
+        }
+
+        delivered.push(item as Record<string, unknown>);
+        deliveredBytes += byteLen(item);
+
+        // Buffer sample for Tier 2
+        if (sample.length < sampleSize) sample.push(item);
+        if (sample.length === sampleSize && !judgePromise) {
+          log(`[Tier 2] judging ${sampleSize}-item sample...`);
+          judgePromise = judgeSample(intent, sample.slice(), signal, { confidenceThreshold }).then(async (t2) => {
+            log(`[Tier 2] verdict: ${t2.ok ? 'PASS' : 'BLOCK'} — ${t2.detail}`);
+            if (!t2.ok && !signal.aborted) {
+              verdict = t2;
+              await tripBreaker(`tier2:${t2.reason}`);
+            }
+          });
+        }
       }
 
-      delivered.push(item as Record<string, unknown>);
+      offset += page.items.length;
 
-      // Buffer sample for Tier 2
-      if (sample.length < sampleSize) sample.push(item);
-      if (sample.length === sampleSize && !judgePromise) {
-        log(`[Tier 2] judging ${sampleSize}-item sample...`);
-        judgePromise = judgeSample(intent, sample.slice(), signal).then(async (t2) => {
-          log(`[Tier 2] verdict: ${t2.ok ? 'PASS' : 'BLOCK'} — ${t2.detail}`);
-          if (!t2.ok && !signal.aborted) {
-            verdict = t2;
-            await tripBreaker(`tier2:${t2.reason}`);
-          }
-        });
+      const runInfo = await client.run(runId).get();
+      const status = runInfo?.status;
+      const finished = status && status !== 'RUNNING' && status !== 'READY';
+      if (finished && offset >= (page.total ?? 0)) break;
+
+      // Fail closed if the upstream never settles within the cap.
+      if (Date.now() > deadline && !signal.aborted) {
+        verdict = errorVerdict(`Timed out after ${maxWaitSecs}s waiting for upstream run ${runId}.`);
+        log(`[TIMEOUT] ${verdict.detail}`);
+        await tripBreaker('timeout');
+        break;
       }
+
+      if (!finished && !signal.aborted) await sleep(pollIntervalMs, signal);
     }
 
-    offset += page.items.length;
-
-    const runInfo = await client.run(runId).get();
-    const status = runInfo?.status;
-    const finished = status && status !== 'RUNNING' && status !== 'READY';
-    if (finished && offset >= (page.total ?? 0)) break;
-    if (!finished && !signal.aborted) await sleep(pollIntervalMs, signal);
+    if (judgePromise) await judgePromise;
+  } catch (err) {
+    // Any failure (target actor won't start, paging error, etc.) fails CLOSED:
+    // the agent still gets a verdict, never a crash with no OUTPUT.
+    const msg = err instanceof Error ? err.message : String(err);
+    verdict = errorVerdict(`Firewall error: ${msg}`);
+    log(`[ERROR] ${msg}`);
+    try { if (runId) await client.run(runId).abort(); } catch { /* ignore */ }
   }
 
-  if (judgePromise) await judgePromise;
-
   const data = verdict.ok ? delivered : [];
+  const tokensDelivered = verdict.ok ? estTokens(deliveredBytes) : 0;
+  const tokensBlocked = verdict.ok ? 0 : estTokens(deliveredBytes + blockedItemBytes);
+  const usdSaved = Number(((tokensBlocked / 1_000_000) * downstreamUsdPerMTok).toFixed(6));
 
   return {
     ok: verdict.ok,
@@ -142,6 +198,9 @@ export async function runFirewall(
       itemsDelivered: data.length,
       aborted: signal.aborted,
       upstreamRunId: runId,
+      tokensDelivered,
+      tokensBlocked,
+      usdSaved,
     },
     data,
   };

@@ -7,7 +7,8 @@ export type Reason =
   | 'empty'
   | 'semantic_mismatch'
   | 'semantic_block'
-  | 'prompt_injection';
+  | 'prompt_injection'
+  | 'upstream_error';
 
 export interface Verdict {
   ok: boolean;

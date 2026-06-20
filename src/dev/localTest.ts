@@ -148,13 +148,20 @@ for (const s of SCENARIOS) {
   console.log(
     `  RESULT ok=${out.ok} tier=${out.tier} reason=${out.reason} delivered=${out.stats.itemsDelivered}/${out.stats.itemsStreamed} aborted=${out.stats.aborted}`,
   );
+  console.log(
+    `  COST   tokensDelivered=${out.stats.tokensDelivered} tokensBlocked=${out.stats.tokensBlocked} usdSaved=$${out.stats.usdSaved}`,
+  );
 
   const okMatch = out.ok === s.expectOk;
   const tierMatch = s.expectTier === undefined || out.tier === s.expectTier;
   // For block scenarios, prove early abort: streamed fewer than the 12 rows.
   const earlyAbort = s.expectOk ? true : out.stats.itemsStreamed < 12 && out.stats.aborted;
+  // Cost accounting sanity: blocks quarantine tokens; passes deliver them.
+  const costOk = s.expectOk
+    ? out.stats.tokensDelivered > 0 && out.stats.tokensBlocked === 0
+    : out.stats.tokensBlocked > 0 && out.stats.tokensDelivered === 0;
 
-  if (okMatch && tierMatch && earlyAbort) {
+  if (okMatch && tierMatch && earlyAbort && costOk) {
     console.log(`  ✅ PASS`);
   } else {
     failures++;

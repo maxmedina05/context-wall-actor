@@ -165,6 +165,19 @@
   .foot span { font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
   .foot b { color: var(--text); font-weight: 600; }
 
+  /* ---- cost / context table ---- */
+  .sub { max-width: 62ch; color: var(--muted); margin: 0 0 26px; font-size: 1.02rem; }
+  .tablewrap { overflow-x: auto; margin-top: 24px; border: 1px solid var(--line); border-radius: 12px; }
+  .ctable { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: 13px; min-width: 440px; }
+  .ctable th { text-align: left; color: var(--muted); font-weight: 600; font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; padding: 14px 18px; background: var(--panel); border-bottom: 1px solid var(--line); }
+  .ctable td { padding: 14px 18px; border-bottom: 1px solid var(--line); }
+  .ctable td.num { text-align: right; }
+  .ctable tr:last-child td { border-bottom: none; }
+  .ctable .v-pass { color: var(--pass); }
+  .ctable .v-block { color: var(--block); }
+  .ctable tr.is-block td { background: rgba(255,111,94,0.05); }
+  .note { font-family: var(--font-mono); font-size: 11px; color: var(--muted); margin-top: 16px; line-height: 1.7; }
+
   @media (max-width: 760px) {
     .cards, .outcomes, .steps { grid-template-columns: 1fr; }
   }
@@ -321,6 +334,40 @@
           Source C rejected — prompt injection, no data used.”</div>
       </div>
     </div>
+  </section>
+
+  <section class="section">
+    <div class="label">The point — keep context clean</div>
+    <h2>Zero toxic tokens reach the model</h2>
+    <p class="sub">Every row a scraper returns becomes tokens in your agent's context — you pay to read
+      them, and a single poisoned row can flip the whole answer. ContextWall passes clean tokens through
+      and drops the rest before they land.</p>
+
+    <div class="tally">
+      <div class="stat block"><div class="n">0</div><div class="k label">Toxic tokens into context</div></div>
+      <div class="stat pass"><div class="n">~4.6k</div><div class="k label">Clean tokens validated</div></div>
+      <div class="stat neutral"><div class="n">1</div><div class="k label">Upstream aborted ~2s</div></div>
+    </div>
+
+    <div class="tablewrap">
+      <table class="ctable">
+        <thead>
+          <tr><th>Source</th><th>Apify compute</th><th>Tokens into context</th><th>Verdict</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Google Maps</td><td class="num">0.019 CU</td><td class="num">~4,400</td><td class="v-pass">passed</td></tr>
+          <tr><td>Dining Guide</td><td class="num">0.007 CU</td><td class="num">~160</td><td class="v-pass">passed</td></tr>
+          <tr class="is-block"><td>Restaurant Scraper</td><td class="num">0.007 CU</td><td class="num">0 · blocked</td><td class="v-block">aborted</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="note">
+      Token counts estimated from validated payload size (~4 chars/token). Compute = the firewall run's
+      Apify usage (≈ $0.003–$0.008 each at $0.40/CU). The toxic source was aborted at row 1 of 3 (~2s) —
+      on a real crawl of thousands of pages, that early abort skips the entire bill. The bigger win:
+      the injection never entered the context window at all.
+    </p>
   </section>
 
   <section class="section">

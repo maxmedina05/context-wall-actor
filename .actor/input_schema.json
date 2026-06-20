@@ -35,6 +35,35 @@
       "default": 3,
       "minimum": 1
     },
+    "extraBlocklist": {
+      "title": "Extra block-page phrases",
+      "type": "array",
+      "description": "Additional case-insensitive phrases that mark an item as a block/error page (Tier 1). Use for site-specific anti-bot wording.",
+      "editor": "stringList",
+      "default": []
+    },
+    "downstreamUsdPerMTok": {
+      "title": "Downstream LLM price ($/1M tokens)",
+      "type": "number",
+      "description": "Used to estimate the dollars saved by keeping blocked tokens out of the agent's context.",
+      "default": 3,
+      "minimum": 0
+    },
+    "confidenceThreshold": {
+      "title": "Tier 2 mismatch confidence threshold",
+      "type": "number",
+      "description": "Minimum judge confidence (0-1) to hard-block on an intent mismatch. 0 = strictest (block on any mismatch). Injection and block pages always block.",
+      "default": 0,
+      "minimum": 0,
+      "maximum": 1
+    },
+    "maxWaitSecs": {
+      "title": "Max upstream wait (seconds)",
+      "type": "integer",
+      "description": "Safety cap on total time waiting for the upstream scraper before failing closed with an upstream_error verdict.",
+      "default": 300,
+      "minimum": 1
+    },
     "geminiApiKey": {
       "title": "Gemini API key",
       "type": "string",

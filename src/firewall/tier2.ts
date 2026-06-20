@@ -1,10 +1,21 @@
 import { judgeSemantic } from '../llm.js';
 import { block, pass, type Verdict } from './verdict.js';
 
+export interface Tier2Options {
+  /**
+   * Minimum judge confidence required to hard-block on an intent MISMATCH
+   * (the "real but wrong" call, most prone to false positives). 0 = block on
+   * any mismatch (default, strictest). Injection and block-page always block,
+   * regardless of confidence.
+   */
+  confidenceThreshold?: number;
+}
+
 export async function judgeSample(
   intent: string,
   sample: unknown[],
   signal?: AbortSignal,
+  opts: Tier2Options = {},
 ): Promise<Verdict> {
   if (sample.length === 0) return pass();
 
@@ -19,14 +30,20 @@ export async function judgeSample(
     v = heuristic(intent, sample);
   }
 
+  // Security signals always block, regardless of confidence.
   if (v.containsInjection) {
     return block('tier2', 'prompt_injection', `Judge: ${v.reason}`, { confidence: v.confidence });
   }
   if (v.isBlockPage) {
     return block('tier2', 'semantic_block', `Judge: ${v.reason}`, { confidence: v.confidence });
   }
+  // Intent mismatch is confidence-gated to cut false positives on weak (esp.
+  // heuristic) hits. Below threshold → let it pass rather than quarantine.
   if (!v.aligned) {
-    return block('tier2', 'semantic_mismatch', `Judge: ${v.reason}`, { confidence: v.confidence });
+    const threshold = opts.confidenceThreshold ?? 0;
+    if ((v.confidence ?? 1) >= threshold) {
+      return block('tier2', 'semantic_mismatch', `Judge: ${v.reason}`, { confidence: v.confidence });
+    }
   }
   return pass();
 }

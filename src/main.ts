@@ -23,7 +23,8 @@ const output = await runFirewall(client as unknown as FirewallClient, input, (m)
 await Actor.setValue('OUTPUT', output);
 
 console.log(
-  `Done. verdict=${output.ok ? 'PASS' : 'BLOCK'} delivered=${output.stats.itemsDelivered}/${output.stats.itemsStreamed} items`,
+  `Done. verdict=${output.ok ? 'PASS' : 'BLOCK'} delivered=${output.stats.itemsDelivered}/${output.stats.itemsStreamed} items` +
+    ` | tokensDelivered=${output.stats.tokensDelivered} tokensBlocked=${output.stats.tokensBlocked} usdSaved=$${output.stats.usdSaved}`,
 );
 
 await Actor.exit();
