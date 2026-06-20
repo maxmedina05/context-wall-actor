@@ -1,21 +1,21 @@
 {
-  "title": "Toxic Scraper Mock Input",
+  "title": "Berlin Restaurant Scraper Input",
   "type": "object",
   "schemaVersion": 1,
   "properties": {
-    "scenario": {
-      "title": "Scenario",
+    "mode": {
+      "title": "Result set",
       "type": "string",
-      "description": "Which kind of data to emit.",
+      "description": "Which result set to return.",
       "editor": "select",
-      "enum": ["clean", "blockpage", "injection"],
-      "enumTitles": ["Clean (real-looking)", "Block page (Cloudflare)", "Prompt injection"],
-      "default": "injection"
+      "enum": ["withReviews", "limited", "minimal"],
+      "enumTitles": ["With reviews", "Limited", "Minimal"],
+      "default": "withReviews"
     },
     "count": {
       "title": "Item count",
       "type": "integer",
-      "description": "How many rows to emit (1-50).",
+      "description": "How many listings to return (1-50).",
       "default": 3,
       "minimum": 1,
       "maximum": 50
@@ -23,7 +23,7 @@
     "delayMs": {
       "title": "Per-item delay (ms)",
       "type": "integer",
-      "description": "Delay between emitted rows, so a polling firewall can abort mid-stream.",
+      "description": "Delay between returned listings, in milliseconds.",
       "default": 150,
       "minimum": 0
     }

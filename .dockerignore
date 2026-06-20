@@ -5,6 +5,6 @@ dist/
 .env.local
 storage/
 apify_storage/
-toxic-scraper-mock/
+berlin-restaurant-scraper/
 *.md
 .DS_Store
