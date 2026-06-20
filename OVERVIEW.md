@@ -117,34 +117,31 @@ to `[]`. The agent gets the verdict + reason, never the poisoned rows.
 ```mermaid
 sequenceDiagram
   participant Ag as AI Agent
-  participant CW as ContextWall (runFirewall)
+  participant CW as ContextWall
   participant Sc as Target Scraper
-  Ag->>CW: intent, actorId, actorInput
-  CW->>Sc: actor(actorId).start(actorInput)
-  Sc-->>CW: { runId, datasetId }
-  loop poll until finished or aborted
-    CW->>Sc: dataset.listItems(offset)
+  Ag->>CW: intent + actorId + actorInput
+  CW->>Sc: start the scraper actor
+  Sc-->>CW: runId and datasetId
+  loop poll every 750ms until finished or aborted
+    CW->>Sc: list new dataset rows
     Sc-->>CW: new rows
     loop each new row
-      CW->>CW: Tier 1 (~ms)
-      alt block-page / injection / bad shape
-        CW->>Sc: run(runId).abort() (stop billing)
-        CW-->>Ag: ⛔ rejected + reason, data:[]
-      else ok
-        CW->>CW: buffer row; once sample full → launch Tier 2 (async)
+      CW->>CW: Tier 1 check, milliseconds
+      alt block-page or injection or bad shape
+        CW->>Sc: abort run and stop billing
+        CW-->>Ag: rejected with reason, empty data
+      else looks ok
+        CW->>CW: buffer row, launch Tier 2 when sample is full
       end
     end
-    CW->>Sc: run(runId).get() (status?)
-    alt still RUNNING
-      CW->>CW: sleep(750ms)
-    end
+    CW->>Sc: check run status
   end
-  CW->>CW: await Tier 2 result
-  alt Tier 2 said BLOCK
-    CW->>Sc: run(runId).abort()
-    CW-->>Ag: ⛔ rejected + reason, data:[]
+  CW->>CW: await Tier 2 verdict
+  alt Tier 2 says block
+    CW->>Sc: abort run
+    CW-->>Ag: rejected with reason, empty data
   else clean
-    CW-->>Ag: ✅ validated data
+    CW-->>Ag: validated data
   end
 ```
 
